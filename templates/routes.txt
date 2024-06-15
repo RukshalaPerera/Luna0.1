@@ -1,0 +1,16 @@
+package routes
+
+import (
+	"{{peojectName}}/app/handler"
+	"github.com/gofiber/fiber/v2"
+)
+
+func Setup{{.Entity}}Routes(app *fiber.App) {
+	app.Get("/{{.Entity | toLower}}s", handler.GetAll{{.Entities}})
+	app.Get("/{{.Entity | toLower}}/:_id", handler.GetA{{.Entity}})
+	app.Post("/{{.Entity | toLower}}s", handler.Create{{.Entity}})
+	app.Put("/{{.Entity | toLower}}s/:_id", handler.EditA{{.Entity}})
+	app.Delete("/{{.Entity | toLower}}s/:_id", handler.DeleteA{{.Entity}})
+	app.Get("/{{.Entity | toLower}}s/search", handler.Search{{.Entities}})
+	app.Get("/{{.Entity | toLower}}s", handler.Get{{.Entity}}List)
+}

@@ -1,0 +1,8 @@
+package models
+
+import "go.mongodb.org/mongo-driver/bson/primitive"
+
+type {{.Entity}} struct {
+    ID       primitive.ObjectID ` + "`bson:\"_id\" json:\"id\"`" + `
+    {{.Fields.0.Name}} string ` + "`bson:\"{{.Fields.0.Name | toLower}}\" json:\"{{.Fields.0.Name | toLower}}\"`" + `
+}

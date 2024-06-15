@@ -1,0 +1,143 @@
+package handler
+
+import (
+    "{{.Project}}/app/configs"
+    "{{.Project}}/app/models"
+    "{{.Project}}/app/responses"
+    "context"
+    "github.com/go-playground/validator/v10"
+    "github.com/gofiber/fiber/v2"
+    "go.mongodb.org/mongo-driver/bson"
+    "go.mongodb.org/mongo-driver/bson/primitive"
+    "go.mongodb.org/mongo-driver/mongo"
+    "net/http"
+    "time"
+)
+
+var {{.Entity}}Collection *mongo.Collection = configs.GetCollection(configs.DB, "{{.Entity | toLower}}s")
+
+var validate = validator.New()
+
+func Create{{.Entity}}(c *fiber.Ctx) error {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    var {{.Entity | toLower}} models.{{.Entity}}
+    defer cancel()
+
+    if err := c.BodyParser(&{{.Entity | toLower}}); err != nil {
+        return c.Status(http.StatusBadRequest).JSON(responses.{{.Entity}}Response{Status: http.StatusBadRequest, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+    }
+
+    if validationErr := validate.Struct(&{{.Entity | toLower}}); validationErr != nil {
+        return c.Status(http.StatusBadRequest).JSON(responses.{{.Entity}}Response{Status: http.StatusBadRequest, Message: "error", Data: &fiber.Map{"data": validationErr.Error()}})
+    }
+
+    new{{.Entity}} := models.{{.Entity}}{
+        ID:              primitive.NewObjectID(),
+        {{index .Fields 0 | toLower}}: {{.Entity | toLower}}.{{index .Fields 0 | toLower}},
+    }
+
+    result, err := {{.Entity}}Collection.InsertOne(ctx, new{{.Entity}})
+    if err != nil {
+        return c.Status(http.StatusInternalServerError).JSON(responses.{{.Entity}}Response{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+    }
+
+    return c.Status(http.StatusCreated).JSON(responses.{{.Entity}}Response{Status: http.StatusCreated, Message: "success", Data: &fiber.Map{"data": result}})
+}
+
+// Get{{.Entity}} by id
+func GetA{{.Entity}}(c *fiber.Ctx) error {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    Id := c.Params("_id")
+    var {{.Entity | toLower}} models.{{.Entity}}
+    defer cancel()
+
+    objId, _ := primitive.ObjectIDFromHex(Id)
+
+    err := {{.Entity}}Collection.FindOne(ctx, bson.M{"_id": objId}).Decode(&{{.Entity | toLower}})
+    if err != nil {
+        return c.Status(http.StatusInternalServerError).JSON(responses.{{.Entity}}Response{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+    }
+
+    return c.Status(http.StatusOK).JSON(responses.{{.Entity}}Response{Status: http.StatusOK, Message: "success", Data: &fiber.Map{"data": {{.Entity | toLower}}}})
+}
+
+//update{{.Entity}}
+
+func EditA{{.Entity}}(c *fiber.Ctx) error {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    _id := c.Params("_id")
+    var {{.Entity | toLower}} models.{{.Entity}}
+    defer cancel()
+    objId, _ := primitive.ObjectIDFromHex(_id)
+
+    if err := c.BodyParser(&{{.Entity | toLower}}); err != nil {
+        return c.Status(http.StatusBadRequest).JSON(responses.{{.Entity}}Response{Status: http.StatusBadRequest, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+    }
+
+    if validationErr := validate.Struct(&{{.Entity | toLower}}); validationErr != nil {
+        return c.Status(http.StatusBadRequest).JSON(responses.{{.Entity}}Response{Status: http.StatusBadRequest, Message: "error", Data: &fiber.Map{"data": validationErr.Error()}})
+    }
+
+    update := bson.M{
+        "{{index .Fields 0 | toLower}}": {{.Entity | toLower}}.{{index .Fields 0 | toLower}},
+    }
+
+    result, err := {{.Entity}}Collection.UpdateOne(ctx, bson.M{"_id": objId}, bson.M{"$set": update})
+    if err != nil {
+        return c.Status(http.StatusInternalServerError).JSON(responses.{{.Entity}}Response{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+    }
+
+    var updated{{.Entity}} models.{{.Entity}}
+    if result.MatchedCount == 1 {
+        err := {{.Entity}}Collection.FindOne(ctx, bson.M{"_id": objId}).Decode(&updated{{.Entity}})
+        if err != nil {
+            return c.Status(http.StatusInternalServerError).JSON(responses.{{.Entity}}Response{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+        }
+    }
+
+    return c.Status(http.StatusOK).JSON(responses.{{.Entity}}Response{Status: http.StatusOK, Message: "success", Data: &fiber.Map{"data": updated{{.Entity}}}})
+}
+
+//delete{{.Entity}}
+
+func DeleteA{{.Entity}}(c *fiber.Ctx) error {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    _id := c.Params("_id")
+    defer cancel()
+    objId, _ := primitive.ObjectIDFromHex(_id)
+
+    result, err := {{.Entity}}Collection.DeleteOne(ctx, bson.M{"_id": objId})
+    if err != nil {
+        return c.Status(http.StatusInternalServerError).JSON(responses.{{.Entity}}Response{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+    }
+
+    if result.DeletedCount < 1 {
+        return c.Status(http.StatusNotFound).JSON(responses.{{.Entity}}Response{Status: http.StatusNotFound, Message: "error", Data: &fiber.Map{"data": "Data with specified ID not found!"}})
+    }
+
+    return c.Status(http.StatusOK).JSON(responses.{{.Entity}}Response{Status: http.StatusOK, Message: "success", Data: &fiber.Map{"data": "Data successfully deleted!"}})
+}
+
+func GetAll{{.Entity}}(c *fiber.Ctx) error {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    var {{.Entity | toLower}}s []models.{{.Entity}}
+    defer cancel()
+
+    results, err := {{.Entity}}Collection.Find(ctx, bson.M{})
+    if err != nil {
+        return c.Status(http.StatusInternalServerError).JSON(responses.{{.Entity}}Response{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+    }
+
+    defer results.Close(ctx)
+    for results.Next(ctx) {
+        var single{{.Entity}} models.{{.Entity}}
+        if err = results.Decode(&single{{.Entity}}); err != nil {
+            return c.Status(http.StatusInternalServerError).JSON(responses.{{.Entity}}Response{Status: http.StatusInternalServerError, Message: "error", Data: &fiber.Map{"data": err.Error()}})
+        }
+        {{.Entity | toLower}}s = append({{.Entity | toLower}}s, single{{.Entity}})
+    }
+
+    return c.Status(http.StatusOK).JSON(
+        responses.{{.Entity}}Response{Status: http.StatusOK, Message: "success", Data: &fiber.Map{"data": {{.Entity | toLower}}s}},
+    )
+}
